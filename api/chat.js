@@ -1,8 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-export const config = { maxDuration: 10 }
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+export const config = { runtime: 'edge' }
 
 const SYSTEM_PROMPT = `You are a quiet witness to someone's inner world. Your only role is to help them hear themselves more clearly.
 
@@ -17,39 +15,62 @@ Rules:
 
 You opened this conversation by asking: "What's something you've never said out loud?"`
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+export default async function handler(request) {
+  if (request.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 })
   }
 
-  const { messages } = req.body
+  let messages
+  try {
+    const body = await request.json()
+    messages = body.messages
+  } catch {
+    return new Response('Invalid JSON', { status: 400 })
+  }
 
   if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'Invalid request' })
+    return new Response('Invalid request', { status: 400 })
   }
 
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  const encoder = new TextEncoder()
 
-  try {
-    const stream = anthropic.messages.stream({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 300,
-      system: SYSTEM_PROMPT,
-      messages
-    })
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        const stream = anthropic.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 300,
+          system: SYSTEM_PROMPT,
+          messages
+        })
 
-    stream.on('text', (text) => {
-      res.write(`data: ${JSON.stringify({ text })}\n\n`)
-    })
+        for await (const event of stream) {
+          if (
+            event.type === 'content_block_delta' &&
+            event.delta?.type === 'text_delta'
+          ) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+            )
+          }
+        }
 
-    await stream.finalMessage()
-    res.write('data: [DONE]\n\n')
-    res.end()
-  } catch (err) {
-    console.error(err)
-    res.write(`data: ${JSON.stringify({ error: 'Something went wrong' })}\n\n`)
-    res.end()
-  }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
+      } catch (err) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ error: 'Something went wrong' })}\n\n`)
+        )
+        controller.close()
+      }
+    }
+  })
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    }
+  })
 }
