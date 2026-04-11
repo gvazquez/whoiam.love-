@@ -44,8 +44,12 @@ export default function Chat() {
   }, [messages, loading])
 
   const send = async () => {
+    console.log('send called', { input, loading })
     const text = input.trim()
-    if (!text || loading) return
+    if (!text || loading) {
+      console.log('send blocked — empty text or loading', { text, loading })
+      return
+    }
 
     const userMsg = { role: 'user', content: text }
     const updatedMessages = [...messages, userMsg]
@@ -58,6 +62,7 @@ export default function Chat() {
       .slice(updatedMessages.findIndex(m => m.role === 'user'))
       .map(m => ({ role: m.role, content: m.content }))
 
+    console.log('sending...', { apiMessages })
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
