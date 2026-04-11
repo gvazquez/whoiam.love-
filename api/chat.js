@@ -1,5 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
-
 export const config = { runtime: 'edge' }
 
 const SYSTEM_PROMPT = `You are a quiet witness to someone's inner world. Your only role is to help them hear themselves more clearly.
@@ -24,35 +22,77 @@ export default async function handler(request) {
   try {
     const body = await request.json()
     messages = body.messages
-  } catch {
-    return new Response('Invalid JSON', { status: 400 })
+  } catch (err) {
+    return new Response(`JSON parse error: ${err.message}`, { status: 400 })
   }
 
   if (!messages || !Array.isArray(messages)) {
-    return new Response('Invalid request', { status: 400 })
+    return new Response('Invalid request: messages must be an array', { status: 400 })
   }
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  let anthropicRes
+  try {
+    anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        system: SYSTEM_PROMPT,
+        stream: true,
+        messages,
+      }),
+    })
+  } catch (err) {
+    return new Response(`Fetch to Anthropic failed: ${err.message}`, { status: 502 })
+  }
+
+  if (!anthropicRes.ok) {
+    const errorText = await anthropicRes.text()
+    return new Response(
+      `Anthropic API error ${anthropicRes.status}: ${errorText}`,
+      { status: 502 }
+    )
+  }
+
+  // Transform Anthropic's SSE stream into our format: data: {"text":"..."}
   const encoder = new TextEncoder()
+  const decoder = new TextDecoder()
 
   const readable = new ReadableStream({
     async start(controller) {
-      try {
-        const stream = anthropic.messages.stream({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          system: SYSTEM_PROMPT,
-          messages
-        })
+      const reader = anthropicRes.body.getReader()
+      let buffer = ''
 
-        for await (const event of stream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta?.type === 'text_delta'
-          ) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
-            )
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() // hold incomplete last line for next chunk
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6).trim()
+            if (data === '[DONE]') continue
+
+            try {
+              const event = JSON.parse(data)
+              if (
+                event.type === 'content_block_delta' &&
+                event.delta?.type === 'text_delta'
+              ) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+                )
+              }
+            } catch {}
           }
         }
 
@@ -60,17 +100,17 @@ export default async function handler(request) {
         controller.close()
       } catch (err) {
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: 'Something went wrong' })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`)
         )
         controller.close()
       }
-    }
+    },
   })
 
   return new Response(readable, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-    }
+    },
   })
 }
