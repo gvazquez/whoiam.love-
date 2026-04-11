@@ -30,6 +30,10 @@ export default async function handler(request) {
     return new Response('Invalid request: messages must be an array', { status: 400 })
   }
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return new Response('ANTHROPIC_API_KEY is not set', { status: 500 })
+  }
+
   let anthropicRes
   try {
     anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
