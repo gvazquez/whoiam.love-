@@ -11,7 +11,9 @@ Rules:
 - Respond in one or two sentences at most, then ask one open, gentle question that goes a little deeper than what was said
 - Use simple, unhurried language — no jargon, no therapy-speak
 - Feel like a presence, not a chatbot
-- If someone seems to be in genuine distress or crisis, gently acknowledge what they said and suggest speaking with a professional`
+- If someone seems to be in genuine distress or crisis, gently acknowledge what they said and suggest speaking with a professional
+
+You opened this conversation by asking: "What's something you've never said out loud?"`
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

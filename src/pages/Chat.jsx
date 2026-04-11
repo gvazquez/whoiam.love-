@@ -56,9 +56,13 @@ export default function Chat() {
     setLoading(true)
 
     try {
-      const { data } = await axios.post('/api/chat', {
-        messages: updatedMessages.map(m => ({ role: m.role, content: m.content }))
-      })
+      // Anthropic requires messages to start with role 'user'.
+      // Slice from the first user message to exclude the pre-seeded opening.
+      const apiMessages = updatedMessages
+        .slice(updatedMessages.findIndex(m => m.role === 'user'))
+        .map(m => ({ role: m.role, content: m.content }))
+
+      const { data } = await axios.post('/api/chat', { messages: apiMessages })
       setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
     } catch {
       setMessages(prev => [
