@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-export const config = { maxDuration: 30 }
+export const config = { maxDuration: 10 }
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -28,17 +28,28 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid request' })
   }
 
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 150,
+    const stream = anthropic.messages.stream({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
       system: SYSTEM_PROMPT,
       messages
     })
 
-    res.json({ content: response.content[0].text })
+    stream.on('text', (text) => {
+      res.write(`data: ${JSON.stringify({ text })}\n\n`)
+    })
+
+    await stream.finalMessage()
+    res.write('data: [DONE]\n\n')
+    res.end()
   } catch (err) {
     console.error(err)
-    res.status(500).json({ error: 'Something went wrong' })
+    res.write(`data: ${JSON.stringify({ error: 'Something went wrong' })}\n\n`)
+    res.end()
   }
 }

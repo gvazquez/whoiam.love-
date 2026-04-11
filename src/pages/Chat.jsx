@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
 import '../styles/chat.css'
 
 const OPENING = "What's something you've never said out loud?"
@@ -12,7 +11,6 @@ export default function Chat() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
-  const textareaRef = useRef(null)
 
   // Custom cursor
   useEffect(() => {
@@ -55,15 +53,55 @@ export default function Chat() {
     setInput('')
     setLoading(true)
 
-    try {
-      // Anthropic requires messages to start with role 'user'.
-      // Slice from the first user message to exclude the pre-seeded opening.
-      const apiMessages = updatedMessages
-        .slice(updatedMessages.findIndex(m => m.role === 'user'))
-        .map(m => ({ role: m.role, content: m.content }))
+    // Anthropic requires messages to start with role 'user'
+    const apiMessages = updatedMessages
+      .slice(updatedMessages.findIndex(m => m.role === 'user'))
+      .map(m => ({ role: m.role, content: m.content }))
 
-      const { data } = await axios.post('/api/chat', { messages: apiMessages })
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages })
+      })
+
+      if (!response.ok) throw new Error('API error')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let assistantText = ''
+      let started = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const lines = decoder.decode(value, { stream: true }).split('\n')
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') break
+
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) throw new Error(parsed.error)
+            if (parsed.text) {
+              if (!started) {
+                // Add the assistant message placeholder on the first token
+                setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+                started = true
+              }
+              assistantText += parsed.text
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = { role: 'assistant', content: assistantText }
+                return updated
+              })
+            }
+          } catch {}
+        }
+      }
     } catch {
       setMessages(prev => [
         ...prev,
@@ -80,6 +118,9 @@ export default function Chat() {
       send()
     }
   }
+
+  // Show ellipsis only while waiting for the first token (last message is still the user's)
+  const waitingForResponse = loading && messages[messages.length - 1]?.role === 'user'
 
   return (
     <div className="chat-page">
@@ -100,7 +141,7 @@ export default function Chat() {
             <p>{m.content}</p>
           </div>
         ))}
-        {loading && (
+        {waitingForResponse && (
           <div className="chat-message chat-message--assistant chat-message--loading">
             <span className="chat-ellipsis">
               <span>.</span><span>.</span><span>.</span>
@@ -113,7 +154,6 @@ export default function Chat() {
       <footer className="chat-input-area">
         <div className="chat-input-row">
           <textarea
-            ref={textareaRef}
             className="chat-textarea"
             placeholder="Speak freely…"
             value={input}
