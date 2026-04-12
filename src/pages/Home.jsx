@@ -85,7 +85,10 @@ export default function Home() {
 
       <nav>
         <a href="#" className="nav-logo">whoiam.love</a>
-        <Link to="/chat" className="nav-cta">Begin</Link>
+        <div className="nav-links">
+          <Link to="/pricing" className="nav-link-subtle">Pricing</Link>
+          <Link to="/chat" className="nav-cta no-anim">Begin</Link>
+        </div>
       </nav>
 
       <section className="hero">

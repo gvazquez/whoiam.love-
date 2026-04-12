@@ -93,6 +93,25 @@ nav {
   transition: color 0.3s ease, border-color 0.3s ease;
 }
 .nav-cta:hover { color: var(--warm); border-color: var(--warm); }
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  opacity: 0;
+  animation: fadeIn 1s ease 2.2s forwards;
+}
+.nav-link-subtle {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+.nav-link-subtle:hover { color: var(--ink); }
+.nav-cta.no-anim { opacity: 1; animation: none; }
 
 /* HERO */
 .hero {
