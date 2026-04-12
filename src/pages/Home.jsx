@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useLang } from '../LangContext'
 import '../App.css'
 
 export default function Home() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const { t, lang, toggle } = useLang()
 
   // Cursor
   useEffect(() => {
     const cursor = document.getElementById('cursor')
     const ring = document.getElementById('cursorRing')
     let mx = 0, my = 0, rx = 0, ry = 0
-
     const onMove = (e) => {
       mx = e.clientX; my = e.clientY
       cursor.style.left = mx + 'px'
       cursor.style.top = my + 'px'
     }
     document.addEventListener('mousemove', onMove)
-
     const animate = () => {
       rx += (mx - rx) * 0.12
       ry += (my - ry) * 0.12
@@ -27,7 +27,6 @@ export default function Home() {
       requestAnimationFrame(animate)
     }
     animate()
-
     return () => document.removeEventListener('mousemove', onMove)
   }, [])
 
@@ -41,7 +40,6 @@ export default function Home() {
         }
       })
     }, { threshold: 0.15 })
-
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
     return () => observer.disconnect()
   }, [])
@@ -51,33 +49,6 @@ export default function Home() {
     setSubmitted(true)
   }
 
-  const steps = [
-    {
-      n: 'i.',
-      title: 'You speak',
-      body: "Start anywhere. A feeling, a fear, a memory. There's no wrong beginning. The AI meets you exactly where you are."
-    },
-    {
-      n: 'ii.',
-      title: 'It listens',
-      body: "No advice. No judgment. Just the kind of deep attention that helps you hear yourself more clearly."
-    },
-    {
-      n: 'iii.',
-      title: 'You see yourself',
-      body: "Patterns emerge. Contradictions surface. Every week, a portrait — assembled from your own words — of who you're becoming."
-    },
-  ]
-
-  const questions = [
-    "What's something you've never said out loud?",
-    "When did you stop being who you were meant to be?",
-    "What do you want that you're ashamed to want?",
-    "Who are you when no one is watching?",
-    "What would you do if you weren't afraid?",
-    "What does love feel like when it's yours?",
-  ]
-
   return (
     <>
       <div id="cursor" className="cursor" />
@@ -86,35 +57,36 @@ export default function Home() {
       <nav>
         <a href="#" className="nav-logo">whoiam.love</a>
         <div className="nav-links">
-          <Link to="/pricing" className="nav-link-subtle">Pricing</Link>
-          <Link to="/chat" className="nav-cta no-anim">Begin</Link>
+          <button className="lang-toggle" onClick={toggle}>{t.langToggle}</button>
+          <Link to="/pricing" className="nav-link-subtle">{t.nav.pricing}</Link>
+          <Link to="/chat" className="nav-cta no-anim">{t.nav.begin}</Link>
         </div>
       </nav>
 
       <section className="hero">
-        <p className="hero-eyebrow">A new kind of mirror</p>
+        <p className="hero-eyebrow">{t.home.eyebrow}</p>
         <h1 className="hero-headline">
-          You've been<br />
-          everything<br />
-          to everyone.<br />
-          <em>Who are you?</em>
+          {t.home.headlineL1}<br />
+          {t.home.headlineL2}<br />
+          {t.home.headlineL3}<br />
+          <em>{t.home.headlineEm}</em>
         </h1>
         <p className="hero-sub">
-          An AI that doesn't fix you,<br />
-          advise you, or optimize you.<br />
-          It simply helps you find yourself.
+          {t.home.subL1}<br />
+          {t.home.subL2}<br />
+          {t.home.subL3}
         </p>
         <Link to="/chat" className="hero-begin">
           <span className="arrow-line" />
-          Begin
+          {t.home.begin}
         </Link>
         <aside className="hero-aside">
-          <p>"The longest journey is the journey inward."</p>
-          <span>— Dag Hammarskjöld</span>
+          <p>{t.home.quote}</p>
+          <span>{t.home.quoteAuthor}</span>
         </aside>
         <div className="scroll-hint">
           <div className="scroll-dot" />
-          <p>Scroll</p>
+          <p>{t.home.scroll}</p>
         </div>
       </section>
 
@@ -122,36 +94,27 @@ export default function Home() {
 
       <section className="section-what">
         <div>
-          <p className="section-label reveal">What this is</p>
+          <p className="section-label reveal">{t.home.whatLabel}</p>
           <h2 className="reveal reveal-delay-1">
-            Not therapy.<br />
-            Not a chatbot.<br />
-            <em>A witness.</em>
+            {t.home.whatH2L1}<br />
+            {t.home.whatH2L2}<br />
+            <em>{t.home.whatH2Em}</em>
           </h2>
         </div>
         <div className="section-what-right">
-          <p className="reveal">
-            Most of us have never had a space to speak freely — without being
-            judged, advised, or redirected. We perform for everyone, including ourselves.
-          </p>
-          <p className="reveal reveal-delay-1">
-            whoiam.love is an AI that listens differently. It asks the questions
-            no one else does. It remembers everything you've said. Over time, it
-            holds a portrait of you that you've built word by word.
-          </p>
-          <p className="reveal reveal-delay-2">
-            Not a diagnosis. Not a score. A living record of who you are, becoming.
-          </p>
+          <p className="reveal">{t.home.whatP1}</p>
+          <p className="reveal reveal-delay-1">{t.home.whatP2}</p>
+          <p className="reveal reveal-delay-2">{t.home.whatP3}</p>
         </div>
       </section>
 
       <section className="section-how">
-        <p className="section-label reveal">How it works</p>
+        <p className="section-label reveal">{t.home.howLabel}</p>
         <h2 className="reveal">
-          The simplest thing.<br /><em>A conversation.</em>
+          {t.home.howH2L1}<br /><em>{t.home.howH2Em}</em>
         </h2>
         <div className="steps">
-          {steps.map((s, i) => (
+          {t.home.steps.map((s, i) => (
             <div className={`step reveal reveal-delay-${i}`} key={i}>
               <p className="step-num">{s.n}</p>
               <h3>{s.title}</h3>
@@ -163,13 +126,15 @@ export default function Home() {
 
       <section className="section-questions">
         <div>
-          <p className="section-label reveal">The questions</p>
+          <p className="section-label reveal">{t.home.questionsLabel}</p>
           <h2 className="reveal">
-            The ones<br />no one<br /><em>ever asks.</em>
+            {t.home.questionsH2L1}<br />
+            {t.home.questionsH2L2}<br />
+            <em>{t.home.questionsH2Em}</em>
           </h2>
         </div>
         <div className="question-list">
-          {questions.map((q, i) => (
+          {t.home.questions.map((q, i) => (
             <div className="question-item reveal" key={i}>
               <p>"{q}"</p>
             </div>
@@ -179,36 +144,32 @@ export default function Home() {
 
       <section className="section-cta" id="begin">
         <h2 className="reveal">
-          Ready to meet<br /><em>yourself?</em>
+          {t.home.ctaH2L1}<br /><em>{t.home.ctaH2Em}</em>
         </h2>
-        <p className="reveal reveal-delay-1">
-          Join the early access list. Be among the first to begin.
-        </p>
+        <p className="reveal reveal-delay-1">{t.home.ctaSub}</p>
         <div className="reveal reveal-delay-2">
           {!submitted ? (
             <form className="cta-form" onSubmit={handleSubmit}>
               <input
                 type="email"
-                placeholder="Your email"
+                placeholder={t.home.ctaPlaceholder}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
               />
-              <button type="submit">Begin →</button>
+              <button type="submit">{t.home.ctaBtn}</button>
             </form>
           ) : null}
           <span className="cta-note">
-            {submitted
-              ? "You're on the list. The journey begins soon."
-              : 'Free to start · No credit card · Just you'}
+            {submitted ? t.home.ctaConfirm : t.home.ctaNote}
           </span>
         </div>
       </section>
 
       <footer>
         <p className="footer-logo">whoiam.love</p>
-        <p>© 2026 · All rights reserved</p>
-        <p>Made with love, powered by AI</p>
+        <p>{t.home.footerRights}</p>
+        <p>{t.home.footerMade}</p>
       </footer>
     </>
   )

@@ -1,27 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useLang } from '../LangContext'
 import '../App.css'
 import '../styles/pricing.css'
 
-const discoverFeatures = [
-  'Unlimited conversations',
-  'AI that listens deeply',
-  'One question at a time',
-  'No memory between sessions',
-]
-
-const experienceFeatures = [
-  'Everything in Discover',
-  'Memory across all sessions',
-  'AI notices patterns over time',
-  'Weekly self-portrait',
-  'Priority access to new features',
-]
-
 export default function Pricing() {
-  const [email, setEmail] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const { t, lang, toggle } = useLang()
+  const p = t.pricing
 
   // Custom cursor
   useEffect(() => {
@@ -29,14 +14,12 @@ export default function Pricing() {
     const ring = document.getElementById('cursorRing')
     if (!cursor || !ring) return
     let mx = 0, my = 0, rx = 0, ry = 0
-
     const onMove = (e) => {
       mx = e.clientX; my = e.clientY
       cursor.style.left = mx + 'px'
       cursor.style.top = my + 'px'
     }
     document.addEventListener('mousemove', onMove)
-
     const animate = () => {
       rx += (mx - rx) * 0.12
       ry += (my - ry) * 0.12
@@ -45,7 +28,6 @@ export default function Pricing() {
       requestAnimationFrame(animate)
     }
     animate()
-
     return () => document.removeEventListener('mousemove', onMove)
   }, [])
 
@@ -59,24 +41,9 @@ export default function Pricing() {
         }
       })
     }, { threshold: 0.15 })
-
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
     return () => observer.disconnect()
   }, [])
-
-  const handleWaitlist = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    try {
-      await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-    } catch {}
-    setSubmitted(true)
-    setSubmitting(false)
-  }
 
   return (
     <>
@@ -86,83 +53,54 @@ export default function Pricing() {
       <nav>
         <Link to="/" className="nav-logo" style={{ opacity: 1, animation: 'none' }}>whoiam.love</Link>
         <div className="nav-links" style={{ opacity: 1, animation: 'none' }}>
-          <Link to="/pricing" className="nav-link-subtle">Pricing</Link>
-          <Link to="/chat" className="nav-cta no-anim">Begin</Link>
+          <button className="lang-toggle" onClick={toggle}>{t.langToggle}</button>
+          <Link to="/pricing" className="nav-link-subtle">{t.nav.pricing}</Link>
+          <Link to="/chat" className="nav-cta no-anim">{t.nav.begin}</Link>
         </div>
       </nav>
 
       <main className="pricing-page">
         <section className="pricing-header">
-          <p className="section-label reveal">Pricing</p>
+          <p className="section-label reveal">{p.label}</p>
           <h2 className="pricing-headline reveal reveal-delay-1">
-            Choose how deep<br /><em>you want to go.</em>
+            {p.headlineL1}<br /><em>{p.headlineEm}</em>
           </h2>
-          <p className="pricing-sub reveal reveal-delay-2">
-            Start free. Go deeper when you're ready.
-          </p>
+          <p className="pricing-sub reveal reveal-delay-2">{p.sub}</p>
         </section>
 
         <section className="pricing-cards">
           <div className="pricing-card reveal">
-            <p className="card-tier">Discover</p>
-            <p className="card-price">Free</p>
-            <p className="card-description">
-              A space to speak. An AI that holds the silence with you, asks the question no one else does.
-            </p>
+            <p className="card-tier">{p.discover.tier}</p>
+            <p className="card-price">{p.discover.price}</p>
+            <p className="card-description">{p.discover.description}</p>
             <ul className="card-features">
-              {discoverFeatures.map((f, i) => (
-                <li key={i}>{f}</li>
-              ))}
+              {p.discover.features.map((f, i) => <li key={i}>{f}</li>)}
             </ul>
-            <Link to="/chat" className="card-cta">
-              Begin Discovering
-            </Link>
+            <Link to="/chat" className="card-cta">{p.discover.cta}</Link>
           </div>
 
           <div className="pricing-card pricing-card--featured reveal reveal-delay-1">
-            <p className="card-badge">Coming soon</p>
-            <p className="card-tier">Experience</p>
+            <p className="card-badge">{p.experience.badge}</p>
+            <p className="card-tier">{p.experience.tier}</p>
             <p className="card-price">$12<span>/month</span></p>
-            <p className="card-description">
-              The AI begins to know you. Patterns surface. A portrait emerges — assembled, over time, from your own words.
-            </p>
+            <p className="card-description">{p.experience.description}</p>
             <ul className="card-features">
-              {experienceFeatures.map((f, i) => (
-                <li key={i}>{f}</li>
-              ))}
+              {p.experience.features.map((f, i) => <li key={i}>{f}</li>)}
             </ul>
-            {!submitted ? (
-              <form className="card-waitlist-form" onSubmit={handleWaitlist}>
-                <input
-                  type="email"
-                  className="card-waitlist-input"
-                  placeholder="Your email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                />
-                <button
-                  type="submit"
-                  className="card-cta"
-                  disabled={submitting}
-                >
-                  {submitting ? '…' : 'Join the Waitlist'}
-                </button>
-              </form>
-            ) : (
-              <p className="card-waitlist-confirm">
-                You're on the list.<br />
-                <em>Something is coming.</em>
-              </p>
-            )}
+            <a
+              href="mailto:gvazquez@altaisgroup.com?subject=whoiam.love%20Experience%20Waitlist&body=I%27d%20like%20to%20join%20the%20Experience%20waitlist."
+              className="card-cta"
+            >
+              {p.experience.cta}
+            </a>
           </div>
         </section>
       </main>
 
       <footer>
         <p className="footer-logo">whoiam.love</p>
-        <p>© 2026 · All rights reserved</p>
-        <p>Made with love, powered by AI</p>
+        <p>{t.home.footerRights}</p>
+        <p>{t.home.footerMade}</p>
       </footer>
     </>
   )

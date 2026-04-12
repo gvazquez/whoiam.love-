@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useLang } from '../LangContext'
 import '../styles/chat.css'
 
-const OPENING = "What's something you've never said out loud?"
-
 export default function Chat() {
+  const { t, lang, toggle } = useLang()
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: OPENING }
+    { role: 'assistant', content: t.chat.opening }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,14 +18,12 @@ export default function Chat() {
     const ring = document.getElementById('chat-cursor-ring')
     if (!cursor || !ring) return
     let mx = 0, my = 0, rx = 0, ry = 0
-
     const onMove = (e) => {
       mx = e.clientX; my = e.clientY
       cursor.style.left = mx + 'px'
       cursor.style.top = my + 'px'
     }
     document.addEventListener('mousemove', onMove)
-
     const animate = () => {
       rx += (mx - rx) * 0.12
       ry += (my - ry) * 0.12
@@ -34,7 +32,6 @@ export default function Chat() {
       requestAnimationFrame(animate)
     }
     animate()
-
     return () => document.removeEventListener('mousemove', onMove)
   }, [])
 
@@ -53,7 +50,6 @@ export default function Chat() {
     setInput('')
     setLoading(true)
 
-    // Anthropic requires messages to start with role 'user'
     const apiMessages = updatedMessages
       .slice(updatedMessages.findIndex(m => m.role === 'user'))
       .map(m => ({ role: m.role, content: m.content }))
@@ -75,20 +71,16 @@ export default function Chat() {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-
         const lines = decoder.decode(value, { stream: true }).split('\n')
-
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
           const data = line.slice(6).trim()
           if (data === '[DONE]') break
-
           try {
             const parsed = JSON.parse(data)
             if (parsed.error) throw new Error(parsed.error)
             if (parsed.text) {
               if (!started) {
-                // Add the assistant message placeholder on the first token
                 setMessages(prev => [...prev, { role: 'assistant', content: '' }])
                 started = true
               }
@@ -105,7 +97,7 @@ export default function Chat() {
     } catch {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Something interrupted the silence. Try again.' }
+        { role: 'assistant', content: t.chat.error }
       ])
     } finally {
       setLoading(false)
@@ -119,7 +111,6 @@ export default function Chat() {
     }
   }
 
-  // Show ellipsis only while waiting for the first token (last message is still the user's)
   const waitingForResponse = loading && messages[messages.length - 1]?.role === 'user'
 
   return (
@@ -129,6 +120,9 @@ export default function Chat() {
 
       <header className="chat-header">
         <Link to="/" className="chat-logo">whoiam.love</Link>
+        <button className="lang-toggle" onClick={toggle} style={{ marginLeft: 'auto' }}>
+          {t.langToggle}
+        </button>
       </header>
 
       <main className="chat-messages">
@@ -155,7 +149,7 @@ export default function Chat() {
         <div className="chat-input-row">
           <textarea
             className="chat-textarea"
-            placeholder="Speak freely…"
+            placeholder={t.chat.placeholder}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
@@ -166,12 +160,12 @@ export default function Chat() {
             className="chat-send"
             onClick={send}
             disabled={!input.trim() || loading}
-            aria-label="Send"
+            aria-label={t.chat.send}
           >
-            Send
+            {t.chat.send}
           </button>
         </div>
-        <p className="chat-hint">Enter to send · Shift + Enter for new line</p>
+        <p className="chat-hint">{t.chat.hint}</p>
       </footer>
     </div>
   )

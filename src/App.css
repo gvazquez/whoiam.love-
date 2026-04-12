@@ -112,6 +112,20 @@ nav {
 }
 .nav-link-subtle:hover { color: var(--ink); }
 .nav-cta.no-anim { opacity: 1; animation: none; }
+.lang-toggle {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+.lang-toggle:hover { color: var(--ink); }
 
 /* HERO */
 .hero {
@@ -250,6 +264,14 @@ nav {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* Scroll offset for fixed nav */
+.section-what,
+.section-how,
+.section-questions,
+.section-cta {
+  scroll-margin-top: 5.5rem;
 }
 
 /* DIVIDER */
