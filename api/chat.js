@@ -45,7 +45,7 @@ export default async function handler(request) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 300,
         system: SYSTEM_PROMPT,
         stream: true,
@@ -59,7 +59,7 @@ export default async function handler(request) {
   if (!anthropicRes.ok) {
     const errorText = await anthropicRes.text()
     return new Response(
-      `Anthropic API error ${anthropicRes.status}: ${errorText}`,
+      `Anthropic API error ${anthropicRes.status}: ${errorText}\n\nSent: ${JSON.stringify(messages)}`,
       { status: 502 }
     )
   }
