@@ -69,6 +69,10 @@
   transform: translateY(-50%);
 }
 
+.card-badge--active {
+  color: var(--ink);
+}
+
 /* Tier name */
 .card-tier {
   font-family: 'Cormorant Garamond', serif;

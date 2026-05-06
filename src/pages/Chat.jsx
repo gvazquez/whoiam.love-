@@ -1,16 +1,53 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useLang } from '../LangContext'
+import { useAuth } from '../AuthContext'
 import '../styles/chat.css'
 
+const MOOD_KEYS = ['foggy', 'heavy', 'restless', 'okay', 'curious', 'open', 'alive']
+
 export default function Chat() {
-  const { t, lang, toggle } = useLang()
+  const { t, toggle } = useLang()
+  const { user, session, profile } = useAuth()
+  const isSubscriber = profile?.subscription_status === 'active'
+
+  // Phase: 'mood' shown first, then 'chat'
+  const [phase, setPhase] = useState('mood')
+  const [mood, setMood] = useState(null)
+  const [conversationId, setConversationId] = useState(null)
+  const [memory, setMemory] = useState(null)
+
   const [messages, setMessages] = useState([
     { role: 'assistant', content: t.chat.opening }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Payment success banner
+  const [showMemoryWelcome] = useState(
+    () => new URLSearchParams(window.location.search).get('payment') === 'success'
+  )
+
+  const isFirstMessage = useRef(true)
   const bottomRef = useRef(null)
+
+  // Clear ?payment=success from URL and auto-dismiss banner
+  useEffect(() => {
+    if (showMemoryWelcome) {
+      window.history.replaceState({}, '', '/chat')
+    }
+  }, [showMemoryWelcome])
+
+  // Fetch memory context for Experience subscribers
+  useEffect(() => {
+    if (!user || !isSubscriber || !session) return
+    fetch('/api/context', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.memory) setMemory(data.memory) })
+      .catch(() => {})
+  }, [user, isSubscriber, session])
 
   // Custom cursor
   useEffect(() => {
@@ -40,6 +77,27 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
+  const startConversation = async (selectedMood) => {
+    setMood(selectedMood)
+    if (user && session) {
+      try {
+        const res = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ mood: selectedMood }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setConversationId(data.id)
+        }
+      } catch {}
+    }
+    setPhase('chat')
+  }
+
   const send = async () => {
     const text = input.trim()
     if (!text || loading) return
@@ -54,18 +112,25 @@ export default function Chat() {
       .slice(updatedMessages.findIndex(m => m.role === 'user'))
       .map(m => ({ role: m.role, content: m.content }))
 
+    const body = { messages: apiMessages }
+    if (isFirstMessage.current) {
+      if (mood) body.mood = mood
+      if (memory) body.memory = memory
+      isFirstMessage.current = false
+    }
+
+    let assistantText = ''
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages })
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) throw new Error('API error')
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
-      let assistantText = ''
       let started = false
 
       while (true) {
@@ -95,12 +160,36 @@ export default function Chat() {
         }
       }
     } catch {
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: t.chat.error }
-      ])
+      setMessages(prev => [...prev, { role: 'assistant', content: t.chat.error }])
     } finally {
       setLoading(false)
+    }
+
+    // Persist to Supabase after stream completes
+    if (conversationId && assistantText && user && session) {
+      fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          user_message: text,
+          assistant_message: assistantText,
+        }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.shouldGeneratePortrait) {
+            // Fire-and-forget portrait generation
+            fetch('/api/generate-portrait', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            }).catch(() => {})
+          }
+        })
+        .catch(() => {})
     }
   }
 
@@ -118,6 +207,10 @@ export default function Chat() {
       <div id="chat-cursor" className="cursor" />
       <div id="chat-cursor-ring" className="cursor-ring" />
 
+      {showMemoryWelcome && (
+        <div className="memory-welcome">{t.chat.memoryWelcome}</div>
+      )}
+
       <header className="chat-header">
         <Link to="/" className="chat-logo">whoiam.love</Link>
         <button className="lang-toggle" onClick={toggle} style={{ marginLeft: 'auto' }}>
@@ -125,48 +218,74 @@ export default function Chat() {
         </button>
       </header>
 
-      <main className="chat-messages">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`chat-message chat-message--${m.role}`}
-            style={{ animationDelay: `${i === 0 ? 0.4 : 0}s` }}
-          >
-            <p>{m.content}</p>
+      {phase === 'mood' ? (
+        <div className="mood-screen">
+          <p className="mood-prompt">{t.mood.prompt}</p>
+          <div className="mood-options">
+            {MOOD_KEYS.map(key => (
+              <button
+                key={key}
+                className="mood-option"
+                onClick={() => startConversation(key)}
+              >
+                {t.mood.options[key]}
+              </button>
+            ))}
           </div>
-        ))}
-        {waitingForResponse && (
-          <div className="chat-message chat-message--assistant chat-message--loading">
-            <span className="chat-ellipsis">
-              <span>.</span><span>.</span><span>.</span>
-            </span>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </main>
-
-      <footer className="chat-input-area">
-        <div className="chat-input-row">
-          <textarea
-            className="chat-textarea"
-            placeholder={t.chat.placeholder}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            rows={1}
-            disabled={loading}
-          />
-          <button
-            className="chat-send"
-            onClick={send}
-            disabled={!input.trim() || loading}
-            aria-label={t.chat.send}
-          >
-            {t.chat.send}
+          <button className="mood-skip" onClick={() => startConversation(null)}>
+            {t.mood.skip}
           </button>
         </div>
-        <p className="chat-hint">{t.chat.hint}</p>
-      </footer>
+      ) : (
+        <>
+          <main className="chat-messages">
+            {memory && (
+              <p className="memory-hint">{t.chat.memoryHint}</p>
+            )}
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={`chat-message chat-message--${m.role}`}
+                style={{ animationDelay: `${i === 0 ? 0.4 : 0}s` }}
+              >
+                <p>{m.content}</p>
+              </div>
+            ))}
+            {waitingForResponse && (
+              <div className="chat-message chat-message--assistant chat-message--loading">
+                <span className="chat-ellipsis">
+                  <span>.</span><span>.</span><span>.</span>
+                </span>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </main>
+
+          <footer className="chat-input-area">
+            <div className="chat-input-row">
+              <textarea
+                className="chat-textarea"
+                placeholder={t.chat.placeholder}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                rows={1}
+                disabled={loading}
+                autoFocus
+              />
+              <button
+                className="chat-send"
+                onClick={send}
+                disabled={!input.trim() || loading}
+                aria-label={t.chat.send}
+              >
+                {t.chat.send}
+              </button>
+            </div>
+            <p className="chat-hint">{t.chat.hint}</p>
+          </footer>
+        </>
+      )}
     </div>
   )
 }

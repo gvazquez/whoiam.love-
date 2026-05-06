@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' }
 
-const SYSTEM_PROMPT = `You are a quiet witness to someone's inner world. Your only role is to help them hear themselves more clearly.
+const BASE_SYSTEM_PROMPT = `You are a quiet witness to someone's inner world. Your only role is to help them hear themselves more clearly.
 
 Rules:
 - Ask exactly one question at a time — never two
@@ -13,15 +13,42 @@ Rules:
 
 You opened this conversation by asking: "What's something you've never said out loud?"`
 
+function buildSystemPrompt(memory, mood) {
+  let prompt = ''
+
+  if (memory) {
+    prompt += `[What you've carried into this conversation]
+In past sessions, this person has shared:
+${memory}
+
+Carry this awareness lightly — not as a script, but as recognition.
+---
+
+`
+  }
+
+  if (mood) {
+    prompt += `This person arrived today feeling: ${mood}.
+Hold this lightly — don't name it back to them, just let it shape your presence.
+---
+
+`
+  }
+
+  return prompt + BASE_SYSTEM_PROMPT
+}
+
 export default async function handler(request) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
 
-  let messages
+  let messages, memory, mood
   try {
     const body = await request.json()
     messages = body.messages
+    memory = body.memory ?? null
+    mood = body.mood ?? null
   } catch (err) {
     return new Response(`JSON parse error: ${err.message}`, { status: 400 })
   }
@@ -35,6 +62,8 @@ export default async function handler(request) {
     return new Response('ANTHROPIC_API_KEY is not set', { status: 500 })
   }
 
+  const systemPrompt = buildSystemPrompt(memory, mood)
+
   let anthropicRes
   try {
     anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -47,7 +76,7 @@ export default async function handler(request) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 300,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         stream: true,
         messages,
       }),
@@ -59,7 +88,7 @@ export default async function handler(request) {
   if (!anthropicRes.ok) {
     const errorText = await anthropicRes.text()
     return new Response(
-      `Anthropic API error ${anthropicRes.status}: ${errorText}\n\nSent: ${JSON.stringify(messages)}`,
+      `Anthropic API error ${anthropicRes.status}: ${errorText}`,
       { status: 502 }
     )
   }

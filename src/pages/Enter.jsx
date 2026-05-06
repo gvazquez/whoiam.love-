@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLang } from '../LangContext'
+import { supabase } from '../lib/supabase'
 import '../App.css'
 import '../styles/enter.css'
 
@@ -34,11 +35,11 @@ export default function Enter() {
     return () => document.removeEventListener('mousemove', onMove)
   }, [])
 
-  // Redirect if already has access
+  // Redirect if already logged in
   useEffect(() => {
-    if (localStorage.getItem('whoiam_access')) {
-      navigate('/chat', { replace: true })
-    }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) navigate('/chat', { replace: true })
+    })
   }, [navigate])
 
   const handleSubmit = async (e) => {
@@ -52,8 +53,8 @@ export default function Enter() {
         body: JSON.stringify({ code: code.trim() }),
       })
       if (res.ok) {
-        localStorage.setItem('whoiam_access', '1')
-        navigate('/chat', { replace: true })
+        sessionStorage.setItem('whoiam_invite_ok', '1')
+        navigate('/auth?mode=signup', { replace: true })
       } else {
         setError(t.enter.error)
       }

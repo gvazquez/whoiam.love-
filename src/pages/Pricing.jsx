@@ -1,12 +1,18 @@
-import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLang } from '../LangContext'
+import { useAuth } from '../AuthContext'
 import '../App.css'
 import '../styles/pricing.css'
 
 export default function Pricing() {
   const { t, lang, toggle } = useLang()
+  const { user, session, profile } = useAuth()
+  const navigate = useNavigate()
   const p = t.pricing
+  const [checkingOut, setCheckingOut] = useState(false)
+
+  const isSubscribed = profile?.subscription_status === 'active'
 
   // Custom cursor
   useEffect(() => {
@@ -45,6 +51,27 @@ export default function Pricing() {
     return () => observer.disconnect()
   }, [])
 
+  const handleCheckout = async () => {
+    if (!user) {
+      navigate('/enter')
+      return
+    }
+    setCheckingOut(true)
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch {
+      setCheckingOut(false)
+    }
+  }
+
   return (
     <>
       <div id="cursor" className="cursor" />
@@ -80,19 +107,28 @@ export default function Pricing() {
           </div>
 
           <div className="pricing-card pricing-card--featured reveal reveal-delay-1">
-            <p className="card-badge">{p.experience.badge}</p>
+            {isSubscribed ? (
+              <p className="card-badge card-badge--active">{p.experience.currentPlan}</p>
+            ) : (
+              <p className="card-badge">{p.experience.badge}</p>
+            )}
             <p className="card-tier">{p.experience.tier}</p>
-            <p className="card-price">$12<span>/month</span></p>
+            <p className="card-price">{p.experience.price}<span>{p.experience.period}</span></p>
             <p className="card-description">{p.experience.description}</p>
             <ul className="card-features">
               {p.experience.features.map((f, i) => <li key={i}>{f}</li>)}
             </ul>
-            <a
-              href="mailto:gvazquez@altaisgroup.com?subject=whoiam.love%20Experience%20Waitlist&body=I%27d%20like%20to%20join%20the%20Experience%20waitlist."
-              className="card-cta"
-            >
-              {p.experience.cta}
-            </a>
+            {isSubscribed ? (
+              <Link to="/portrait" className="card-cta">{t.portrait.label}</Link>
+            ) : (
+              <button
+                className="card-cta"
+                onClick={handleCheckout}
+                disabled={checkingOut}
+              >
+                {checkingOut ? '…' : p.experience.cta}
+              </button>
+            )}
           </div>
         </section>
       </main>
